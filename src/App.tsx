@@ -199,12 +199,20 @@ export default function App() {
       if (!response.ok) throw new Error("API no disponible");
       const payload = (await response.json()) as {
         mode?: AiMode;
-        proposals?: Array<Pick<CourseProposal, "id" | "aiExplanation" | "missingEvidence">>;
+        proposals?: Array<{
+          proposalId: string;
+          explanation: string;
+          missingEvidence: readonly string[];
+        }>;
       };
       if (payload.proposals) {
         setDisplayProposals((current) => current.map((proposal) => {
-          const update = payload.proposals?.find((item) => item.id === proposal.id);
-          return update ? { ...proposal, ...update } : proposal;
+          const update = payload.proposals?.find((item) => item.proposalId === proposal.id);
+          return update ? {
+            ...proposal,
+            aiExplanation: update.explanation,
+            missingEvidence: update.missingEvidence,
+          } : proposal;
         }));
       }
       setAiMode(payload.mode === "live" ? "live" : "simulated");
