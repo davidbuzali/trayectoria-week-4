@@ -9,10 +9,12 @@ All people, institutions, records, costs, and dates shown in the product are fic
 - Production prototype: <https://week-4-trajectory-verification.vercel.app>
 - Source repository: <https://github.com/davidbuzali/trayectoria-week-4>
 - Planning packet: [`docs/PACKET.md`](docs/PACKET.md)
+- Packet PDF: [`output/pdf/PACKET_davidbuzali.pdf`](output/pdf/PACKET_davidbuzali.pdf)
 - Implementation prompt: [`docs/IMPLEMENTATION_PROMPT.md`](docs/IMPLEMENTATION_PROMPT.md)
 - Mechanical test record: [`docs/TESTING.md`](docs/TESTING.md)
 - Diego persona record: [`docs/PERSONA.md`](docs/PERSONA.md)
 - Persona PDF: [`output/pdf/PERSONA_davidbuzali.pdf`](output/pdf/PERSONA_davidbuzali.pdf)
+- Full visible build-chat PDF: [`output/pdf/BUILDCHAT_davidbuzali.pdf`](output/pdf/BUILDCHAT_davidbuzali.pdf)
 - Decision log: [`DECISIONS.md`](DECISIONS.md)
 
 ## Run locally
