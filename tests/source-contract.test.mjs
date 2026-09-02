@@ -18,4 +18,6 @@ test("interface contains visible safety boundaries", async () => {
   assert.match(source, /No mide potencial/);
   assert.match(source, /No se puede omitir la revisión humana/);
   assert.match(source, /Sin ranking/);
+  assert.match(source, /Trazabilidad de créditos/);
+  assert.match(source, /Ninguna propuesta de IA se sumó por sí sola/);
 });

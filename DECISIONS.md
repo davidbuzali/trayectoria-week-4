@@ -47,4 +47,18 @@ Move the standalone Week 4 folder into `~/crystal-ball/cuaderno`, initialize its
 
 ### Next validation move
 
-Run the required synthetic-evaluator persona test in a fresh chat, record the evidence and any resulting correction, then create the final Vercel deployment.
+Run the required Diego persona test, record the evidence and any resulting correction, then create the final Vercel deployment.
+
+## 2026-09-02 - Diego persona correction and finding
+
+- Corrected the persona-testing plan after the user clarified that the Week 4 build persona is Diego, not evaluator Laura.
+- Conducted the test in the current build conversation at the user's explicit request because the full product context was already available.
+- Tested Diego's view before institutional verification and confirmed that proposed credits and route calculations stay hidden.
+- Tested Diego's view after two courses were confirmed and one was returned, then inspected both routes and the calculation assumptions.
+- Confirmed that the interface preserves equal visual weight, exposes the affordability gap, avoids a recommendation, and states that Diego may reject both routes.
+- Identified the highest-risk confusion: Diego could not trace the 90 recognized transfer credits to the 78-credit confirmed base, 12 newly confirmed credits, and zero credits from the returned proposal.
+- Added a visible credit-arithmetic breakdown and restored the September 18 payment deadline to Diego's header.
+
+### Next validation move
+
+Verify the corrected Diego view in the deployed build, preserve the persona evidence, and complete the final Vercel deployment.

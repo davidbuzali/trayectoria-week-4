@@ -108,6 +108,8 @@ export default function App() {
     creditsPerSemester: demoCase.assumptions.creditsPerSemester,
     tuitionPerSemester: demoCase.assumptions.transferTuitionPerSemester,
   }), [acceptedTransferCredits]);
+  const confirmedCount = displayProposals.filter((proposal) => reviews[proposal.id]?.status === "confirmed").length;
+  const returnedCount = displayProposals.filter((proposal) => reviews[proposal.id]?.status === "returned").length;
 
   const applyReview = useCallback(
     (proposalId: string, status: ProposalReview["status"], reason: string) => {
@@ -251,7 +253,7 @@ export default function App() {
         <nav className="contextbar" aria-label="Contexto del expediente">
           <div><span>Expediente</span><strong>{demoCase.id}</strong></div>
           <div><span>Estudiante</span><strong>{demoCase.student}</strong></div>
-          <div><span>Evidencia calculada</span><strong>{demoCase.assumptions.evidenceDate}</strong></div>
+          <div><span>Fecha límite de pago</span><strong>{demoCase.paymentDeadline}</strong></div>
           <button type="button" onClick={() => setView("evaluator")}>Volver a evaluación <span aria-hidden="true">↗</span></button>
         </nav>
         <section className="student-view" id="student-view">
@@ -266,6 +268,19 @@ export default function App() {
           ) : (
             <>
               <div className="student-decision-note"><strong>Decisión institucional simulada emitida</strong><span>{decisionIssuedAt} · {acceptedTransferCredits} créditos reconocidos para la ruta de transferencia</span></div>
+              <section className="credit-breakdown" aria-labelledby="credit-breakdown-title">
+                <div>
+                  <p className="eyebrow">Trazabilidad de créditos</p>
+                  <h2 id="credit-breakdown-title">Así se obtuvieron los {acceptedTransferCredits} créditos</h2>
+                  <p>Ninguna propuesta de IA se sumó por sí sola.</p>
+                </div>
+                <ol>
+                  <li><span>Base ya confirmada</span><strong>{demoCase.previouslyConfirmedTransferCredits}</strong></li>
+                  <li><span>{confirmedCount} cursos confirmados ahora</span><strong>+{acceptedTransferCredits - demoCase.previouslyConfirmedTransferCredits}</strong></li>
+                  <li><span>{returnedCount} curso devuelto</span><strong>+0</strong></li>
+                  <li className="credit-total"><span>Total reconocido</span><strong>{acceptedTransferCredits}</strong></li>
+                </ol>
+              </section>
               <div className="route-grid" aria-label="Dos rutas calculadas con el mismo peso">
                 <RouteCard title="Permanecer" institution={demoCase.currentInstitution} route={currentRoute} tuitionPerSemester={demoCase.assumptions.currentTuitionPerSemester} affordability={demoCase.assumptions.affordabilityPerSemester} note="No hay apoyo verificado en el expediente; la brecha económica permanece visible y la ruta no se descarta." />
                 <RouteCard title="Transferencia" institution={demoCase.destinationInstitution} route={transferRoute} tuitionPerSemester={demoCase.assumptions.transferTuitionPerSemester} affordability={demoCase.assumptions.affordabilityPerSemester} note="Solo incorpora créditos confirmados en la decisión institucional; las propuestas devueltas cuentan como cero." />

@@ -264,11 +264,11 @@ The mechanical pass must uncover and document at least one actual defect. After 
 
 ### Pass 2: synthetic persona test
 
-The persona will be an evaluator rather than a general student because the evaluator is the operational user of this slice:
+The Week 4 build persona is Diego, the student and final decision-maker:
 
-> You are Laura, 43, a university course-equivalency analyst who processes many requests through email, PDFs, and spreadsheets. You are careful about institutional liability, skeptical of AI suggestions, pressed for time, and unwilling to approve anything when the source or authority is unclear. Attempt the task as Laura, narrating where you hesitate, what you distrust, and where you would stop.
+> You are Diego, 20, a first-generation Industrial Engineering student whose family is stretching its finances to pay tuition. You want a recognized degree without destabilizing your household. Reversibility and future options matter more than speed. Review Trayectoria before and after the institutional decision, narrating what you understand, what you distrust, what you cannot trace, and what you would do before the payment deadline.
 
-In a fresh LLM conversation, screenshots will be presented in task order. The persona will attempt to inspect a proposal, return one, confirm the others, issue the institutional decision, and explain why the calculator unlocked. Every confusion will be logged, and the highest-risk confusion will be fixed before the final deployment. The persona, transcript summary, confusion log, chosen fix, and evidence after the fix will be recorded in `docs/PERSONA.md` and exported as `PERSONA_davidbuzali.pdf`.
+At the user's explicit direction, the persona test is conducted in the build conversation so its context can be challenged directly. The persona checks the blocked state, reviews the verified result, compares both routes, opens the calculation assumptions, explains the recognized-credit total, and identifies a next action. Every confusion is logged, and the highest-risk confusion is fixed before the final deployment. The persona, transcript summary, confusion log, chosen fix, and evidence after the fix are recorded in `docs/PERSONA.md` and exported as `PERSONA_davidbuzali.pdf`.
 
 ## 14. Build and deployment checkpoints
 

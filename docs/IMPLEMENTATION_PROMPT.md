@@ -250,11 +250,11 @@ After the complete slice works:
 2. Find and document at least one genuine defect; do not manufacture or intentionally insert a bug.
 3. Fix the defect, rerun the checks, and record the evidence in `docs/TESTING.md`.
 4. Deploy the corrected build.
-5. Prepare ordered screenshots for a fresh synthetic-persona chat using Laura, the evaluator persona defined in the packet.
+5. Present the ordered product states to Diego, the Week 4 student persona defined in the packet.
 6. Log every hesitation and confusion in `docs/PERSONA.md`.
 7. Fix the highest-risk confusion, rerun the affected checks, and deploy the final version.
 
-Do not conduct the persona test in the same conversation that built the product. The assignment requires a fresh chat.
+Record the test context accurately. The user explicitly directed that this persona pass occur in the build conversation because the relevant context was already present.
 
 ## Commit and deployment plan
 
