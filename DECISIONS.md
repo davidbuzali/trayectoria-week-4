@@ -30,3 +30,21 @@ Turn `docs/PACKET.md` into a precise implementation prompt with small acceptance
 ### Tomorrow's first move
 
 Move the standalone Week 4 folder into `~/crystal-ball/cuaderno`, initialize its Git repository and GitHub remote, commit the packet and implementation prompt, and only then scaffold the product.
+
+## 2026-09-02 - Working slice and mechanical verification
+
+- Implemented the bounded evaluator workspace with three fictional equivalency records, visible sources, dates, missing evidence, and provisional AI explanations.
+- Required a written rationale for every human confirmation or return; all three reviews must be resolved before a separate institutional-decision action becomes available.
+- Invalidated the institutional decision whenever an evaluator changes a review.
+- Kept route arithmetic deterministic and excluded every returned proposal from the accepted-credit total.
+- Presented the stay and transfer routes with equal visual weight, explicit assumptions, affordability context, and Diego's right to reject both.
+- Added a small WebMCP action that uses the same review validation and state transition as the visible evaluator controls when the browser supports the API.
+- Created a controlled server endpoint with allowlisted fictional records, schema validation, simulated fallback, and no authority over review or calculation state.
+- Completed the first Vercel deployment, then found a real response-contract defect: the API returned `proposalId` and `explanation`, while the interface expected `id` and `aiExplanation`.
+- Added a regression test, corrected the interface mapping, and completed the second production deployment.
+- Verified the production page and simulated endpoint respond successfully at `https://week-4-trajectory-verification.vercel.app`.
+- Kept the OpenAI API optional. The deployed prototype defaults to controlled simulation unless server-side live-mode variables are explicitly configured.
+
+### Next validation move
+
+Run the required synthetic-evaluator persona test in a fresh chat, record the evidence and any resulting correction, then create the final Vercel deployment.
