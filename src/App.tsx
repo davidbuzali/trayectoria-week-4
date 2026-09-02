@@ -1,5 +1,18 @@
-import { useState } from "react";
-import { demoCase, proposals, type ProposalStatus } from "./data";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  demoCase,
+  proposals,
+  type CourseProposal,
+  type ProposalReview,
+  type ProposalStatus,
+} from "./data";
+import {
+  MAX_RATIONALE_LENGTH,
+  canIssueDecision,
+  institutionalDecisionBlockers,
+  validateRationale,
+  type ReviewMap,
+} from "./logic";
 
 const statusText: Record<ProposalStatus, string> = {
   pending: "Pendiente de revisión",
@@ -7,16 +20,158 @@ const statusText: Record<ProposalStatus, string> = {
   returned: "Devuelta por evidencia",
 };
 
-export default function App() {
-  const [statuses, setStatuses] = useState<Record<string, ProposalStatus>>({});
-  const reviewed = Object.values(statuses).filter((status) => status !== "pending").length;
+type ActiveAction = {
+  id: string;
+  status: ProposalReview["status"];
+};
 
-  function setStatus(id: string, status: ProposalStatus) {
-    setStatuses((current) => ({ ...current, [id]: status }));
+type AiMode = "simulated" | "live";
+
+export default function App() {
+  const [displayProposals, setDisplayProposals] = useState<readonly CourseProposal[]>(proposals);
+  const [reviews, setReviews] = useState<ReviewMap>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [activeAction, setActiveAction] = useState<ActiveAction | null>(null);
+  const [rationale, setRationale] = useState("");
+  const [rationaleError, setRationaleError] = useState<string | null>(null);
+  const [decisionIssuedAt, setDecisionIssuedAt] = useState<string | null>(null);
+  const [aiMode, setAiMode] = useState<AiMode>("simulated");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [liveMessage, setLiveMessage] = useState("Tres propuestas esperan revisión humana.");
+  const [events, setEvents] = useState<string[]>(["Expediente de demostración abierto."]);
+
+  const reviewed = useMemo(
+    () => displayProposals.filter((proposal) => reviews[proposal.id]).length,
+    [displayProposals, reviews],
+  );
+  const blockers = useMemo(
+    () => institutionalDecisionBlockers(displayProposals, reviews),
+    [displayProposals, reviews],
+  );
+
+  const applyReview = useCallback(
+    (proposalId: string, status: ProposalReview["status"], reason: string) => {
+      const error = validateRationale(reason);
+      const proposal = displayProposals.find((item) => item.id === proposalId);
+      if (!proposal) return { ok: false, message: "La propuesta indicada no existe." };
+      if (error) return { ok: false, message: error };
+
+      const review: ProposalReview = {
+        status,
+        rationale: reason.trim(),
+        evaluatorName: "Laura M. · evaluadora simulada",
+        decidedAt: new Intl.DateTimeFormat("es-MX", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date()),
+      };
+      setReviews((current) => ({ ...current, [proposalId]: review }));
+      setDecisionIssuedAt(null);
+      const action = status === "confirmed" ? "confirmó" : "devolvió";
+      const message = `${proposalId}: Laura M. ${action} la propuesta con una razón registrada.`;
+      setEvents((current) => [message, ...current]);
+      setLiveMessage(message);
+      return { ok: true, message };
+    },
+    [displayProposals],
+  );
+
+  useEffect(() => {
+    if (!document.modelContext?.registerTool) return;
+    document.modelContext.registerTool({
+      name: "review_course_proposal",
+      description: "Registra una revisión humana simulada sobre una propuesta de equivalencia del expediente T-014.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          proposalId: { type: "string", enum: proposals.map((proposal) => proposal.id) },
+          decision: { type: "string", enum: ["confirmed", "returned"] },
+          rationale: { type: "string", minLength: 1, maxLength: MAX_RATIONALE_LENGTH },
+        },
+        required: ["proposalId", "decision", "rationale"],
+      },
+      execute: async (input: unknown) => {
+        const value = input as { proposalId?: string; decision?: string; rationale?: string };
+        if (
+          !value.proposalId ||
+          !["confirmed", "returned"].includes(value.decision ?? "") ||
+          typeof value.rationale !== "string"
+        ) {
+          return { ok: false, message: "Entrada incompleta para la revisión." };
+        }
+        return applyReview(
+          value.proposalId,
+          value.decision as ProposalReview["status"],
+          value.rationale,
+        );
+      },
+    });
+  }, [applyReview]);
+
+  function beginReview(id: string, status: ProposalReview["status"]) {
+    const existing = reviews[id];
+    setActiveAction({ id, status });
+    setRationale(existing?.rationale ?? "");
+    setRationaleError(null);
+  }
+
+  function saveReview() {
+    if (!activeAction) return;
+    const result = applyReview(activeAction.id, activeAction.status, rationale);
+    if (!result.ok) {
+      setRationaleError(result.message);
+      return;
+    }
+    setActiveAction(null);
+    setRationale("");
+    setRationaleError(null);
+  }
+
+  async function refreshAiProposals() {
+    setAiLoading(true);
+    setLiveMessage("Actualizando propuestas; las decisiones humanas no cambiarán.");
+    try {
+      const response = await fetch("/api/propose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalIds: displayProposals.map((proposal) => proposal.id) }),
+      });
+      if (!response.ok) throw new Error("API no disponible");
+      const payload = (await response.json()) as {
+        mode?: AiMode;
+        proposals?: Array<Pick<CourseProposal, "id" | "aiExplanation" | "missingEvidence">>;
+      };
+      if (payload.proposals) {
+        setDisplayProposals((current) => current.map((proposal) => {
+          const update = payload.proposals?.find((item) => item.id === proposal.id);
+          return update ? { ...proposal, ...update } : proposal;
+        }));
+      }
+      setAiMode(payload.mode === "live" ? "live" : "simulated");
+      setLiveMessage("Propuestas actualizadas. La revisión humana se conservó.");
+    } catch {
+      setAiMode("simulated");
+      setDisplayProposals(proposals);
+      setLiveMessage("Vista local: se conservaron las propuestas simuladas del expediente.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function issueDecision() {
+    if (!canIssueDecision(displayProposals, reviews)) return;
+    const issued = new Intl.DateTimeFormat("es-MX", {
+      dateStyle: "long",
+      timeStyle: "short",
+    }).format(new Date());
+    setDecisionIssuedAt(issued);
+    setEvents((current) => [`Decisión institucional simulada emitida el ${issued}.`, ...current]);
+    setLiveMessage("Decisión institucional emitida. El cálculo ya puede usar solo créditos confirmados.");
   }
 
   return (
     <main>
+      <div className="sr-only" aria-live="polite">{liveMessage}</div>
       <header className="topbar">
         <a className="brand" href="#expediente" aria-label="Trayectoria, inicio">
           <span className="brand-mark" aria-hidden="true">T</span>
@@ -29,7 +184,7 @@ export default function App() {
         <div><span>Expediente</span><strong>{demoCase.id}</strong></div>
         <div><span>Institución evaluadora</span><strong>{demoCase.destinationInstitution} · simulada</strong></div>
         <div><span>Fecha límite del estudiante</span><strong>{demoCase.paymentDeadline}</strong></div>
-        <button type="button">Vista de Diego <span aria-hidden="true">↗</span></button>
+        <button type="button" disabled title="Disponible después de emitir la decisión">Vista de Diego <span aria-hidden="true">↗</span></button>
       </nav>
 
       <div className="shell" id="expediente">
@@ -46,23 +201,27 @@ export default function App() {
             <strong>La decisión sigue siendo de Diego.</strong>
             <p>Este espacio verifica evidencia. No mide potencial, no ordena rutas y no decide admisiones.</p>
           </div>
+          <button className="text-button" type="button" onClick={refreshAiProposals} disabled={aiLoading}>
+            {aiLoading ? "Actualizando…" : "Actualizar propuestas de IA"}
+          </button>
+          <small className="mode-note">Modo de IA: {aiMode === "live" ? "API activa" : "simulación controlada"}</small>
         </aside>
 
         <section className="workspace" aria-labelledby="workspace-title">
           <div className="workspace-heading">
             <div>
-              <p className="eyebrow">Revisión activa · {reviewed} de {proposals.length} resueltas</p>
+              <p className="eyebrow">Revisión activa · {reviewed} de {displayProposals.length} resueltas</p>
               <h2 id="workspace-title">Confirma la evidencia, no la predicción</h2>
               <p>La IA propuso coincidencias entre cursos. Una persona autorizada debe aceptar o devolver cada una antes de emitir una decisión institucional.</p>
             </div>
-            <span className="status-pill"><i /> Revisión humana pendiente</span>
+            <span className={`status-pill ${decisionIssuedAt ? "issued" : ""}`}><i /> {decisionIssuedAt ? "Decisión emitida" : "Revisión humana pendiente"}</span>
           </div>
 
           <ol className="process" aria-label="Flujo de verificación">
             <li className="done"><span>1</span><div><strong>Propuesta de IA</strong><small>Completada · no vinculante</small></div></li>
-            <li className="active"><span>2</span><div><strong>Revisión humana</strong><small>En curso</small></div></li>
-            <li><span>3</span><div><strong>Decisión escrita</strong><small>Aún no emitida</small></div></li>
-            <li><span>4</span><div><strong>Cálculo de ruta</strong><small>Bloqueado</small></div></li>
+            <li className={reviewed === displayProposals.length ? "done" : "active"}><span>2</span><div><strong>Revisión humana</strong><small>{reviewed === displayProposals.length ? "Completada" : "En curso"}</small></div></li>
+            <li className={decisionIssuedAt ? "done" : reviewed === displayProposals.length ? "active" : ""}><span>3</span><div><strong>Decisión escrita</strong><small>{decisionIssuedAt ? "Emitida" : "Aún no emitida"}</small></div></li>
+            <li><span>4</span><div><strong>Cálculo de ruta</strong><small>{decisionIssuedAt ? "Listo para abrir" : "Bloqueado"}</small></div></li>
           </ol>
 
           <div className="section-label">
@@ -71,21 +230,41 @@ export default function App() {
           </div>
 
           <div className="match-list">
-            {proposals.slice(0, 2).map((proposal) => {
-              const status = statuses[proposal.id] ?? proposal.status;
+            {displayProposals.map((proposal) => {
+              const review = reviews[proposal.id];
+              const status = review?.status ?? proposal.status;
+              const isEditing = activeAction?.id === proposal.id;
+              const isExpanded = expanded === proposal.id;
               return (
                 <article className={`match-card ${status}`} key={proposal.id}>
-                  <div className="match-topline"><span>{proposal.id}</span><span className="ai-chip">✦ PROPUESTA DE IA SIMULADA</span><span className={`review-chip ${status}`}>{statusText[status]}</span></div>
+                  <div className="match-topline"><span>{proposal.id}</span><span className="ai-chip">✦ {aiMode === "live" ? "PROPUESTA DE IA · API" : "PROPUESTA DE IA SIMULADA"}</span><span className={`review-chip ${status}`}>{statusText[status]}</span></div>
                   <div className="course-pair">
                     <div><small>Curso de origen</small><strong>{proposal.sourceCourse.name}</strong><span>{proposal.sourceCourse.code} · {proposal.sourceCourse.credits} créditos</span></div>
                     <b aria-hidden="true">→</b>
                     <div><small>Curso candidato</small><strong>{proposal.targetCourse.name}</strong><span>{proposal.targetCourse.code} · {proposal.targetCourse.credits} créditos</span></div>
                   </div>
-                  <div className="evidence-line"><span>Fuente verificable</span><strong>{proposal.sourceDocument}</strong><small>{proposal.evidenceDate}</small><button type="button">Ver evidencia</button></div>
-                  <div className="decision-row">
-                    <p>{status === "pending" ? "Requiere criterio institucional." : statusText[status]}</p>
-                    <div><button className="secondary" type="button" onClick={() => setStatus(proposal.id, "returned")}>Devolver</button><button className="primary" type="button" onClick={() => setStatus(proposal.id, "confirmed")}>Confirmar</button></div>
-                  </div>
+                  <div className="ai-explanation"><span aria-hidden="true">✦</span><p><strong>Lectura provisional de IA.</strong> {proposal.aiExplanation}</p></div>
+                  <div className="evidence-line"><span>Fuente verificable</span><strong>{proposal.sourceDocument}</strong><small>{proposal.evidenceDate}</small><button type="button" aria-expanded={isExpanded} onClick={() => setExpanded(isExpanded ? null : proposal.id)}>{isExpanded ? "Ocultar" : "Ver evidencia"}</button></div>
+                  {isExpanded && (
+                    <div className="evidence-detail">
+                      <div><strong>Contenido documentado</strong><ul>{proposal.contentEvidence.map((item) => <li key={item}>{item}</li>)}</ul></div>
+                      <div><strong>Evidencia faltante</strong>{proposal.missingEvidence.length ? <ul className="missing">{proposal.missingEvidence.map((item) => <li key={item}>{item}</li>)}</ul> : <p>No se identificó evidencia faltante en esta demostración.</p>}</div>
+                    </div>
+                  )}
+                  {review && !isEditing && <div className="review-record"><strong>Razón institucional</strong><p>{review.rationale}</p><small>{review.evaluatorName} · {review.decidedAt}</small></div>}
+                  {isEditing ? (
+                    <div className="rationale-form">
+                      <label htmlFor={`reason-${proposal.id}`}>{activeAction.status === "confirmed" ? "Razón para confirmar" : "Razón para devolver"}</label>
+                      <textarea id={`reason-${proposal.id}`} value={rationale} maxLength={MAX_RATIONALE_LENGTH} onChange={(event) => { setRationale(event.target.value); setRationaleError(null); }} autoFocus />
+                      <div className="form-meta"><span className={rationaleError ? "error" : ""}>{rationaleError ?? "La razón quedará visible y podrá corregirse."}</span><span>{rationale.length}/{MAX_RATIONALE_LENGTH}</span></div>
+                      <div className="form-actions"><button className="secondary" type="button" onClick={() => setActiveAction(null)}>Cancelar</button><button className="primary" type="button" onClick={saveReview}>Guardar revisión</button></div>
+                    </div>
+                  ) : (
+                    <div className="decision-row">
+                      <p>{review ? "Puedes corregir esta revisión antes de emitir la decisión." : "Requiere criterio institucional y una razón escrita."}</p>
+                      <div><button className="secondary" type="button" onClick={() => beginReview(proposal.id, "returned")}>Devolver</button><button className="primary" type="button" onClick={() => beginReview(proposal.id, "confirmed")}>Confirmar</button></div>
+                    </div>
+                  )}
                 </article>
               );
             })}
@@ -94,16 +273,17 @@ export default function App() {
 
         <aside className="gate-panel" aria-labelledby="gate-title">
           <p className="eyebrow">Puerta institucional</p>
-          <h2 id="gate-title">El cálculo espera.</h2>
+          <h2 id="gate-title">{decisionIssuedAt ? "Decisión emitida." : "El cálculo espera."}</h2>
           <p>Solo puede usar créditos que aparezcan en una decisión escrita de la institución.</p>
-          <div className="lock-card"><span aria-hidden="true">⌁</span><div><strong>Ruta bloqueada</strong><small>Faltan decisiones y la firma institucional.</small></div></div>
+          <div className={`lock-card ${decisionIssuedAt ? "unlocked" : ""}`}><span aria-hidden="true">{decisionIssuedAt ? "✓" : "⌁"}</span><div><strong>{decisionIssuedAt ? "Puerta institucional abierta" : "Ruta bloqueada"}</strong><small>{decisionIssuedAt ? `Emitida ${decisionIssuedAt}` : blockers.join(" · ") || "Lista para firma institucional."}</small></div></div>
           <ul>
             <li className="complete"><span>✓</span> Fuentes y fechas visibles</li>
-            <li><span>{proposals.length - reviewed}</span> Propuestas por resolver</li>
-            <li><span>—</span> Decisión escrita pendiente</li>
+            <li className={reviewed === displayProposals.length ? "complete" : ""}><span>{reviewed === displayProposals.length ? "✓" : displayProposals.length - reviewed}</span> Propuestas resueltas</li>
+            <li className={decisionIssuedAt ? "complete" : ""}><span>{decisionIssuedAt ? "✓" : "—"}</span> Decisión escrita</li>
           </ul>
-          <button className="issue-button" type="button" disabled>Emitir decisión institucional</button>
-          <small className="button-help">No se puede omitir la revisión humana.</small>
+          <button className="issue-button" type="button" disabled={!canIssueDecision(displayProposals, reviews) || Boolean(decisionIssuedAt)} onClick={issueDecision}>{decisionIssuedAt ? "Decisión emitida" : "Emitir decisión institucional"}</button>
+          <small className="button-help">{blockers.length ? blockers.join(" · ") : decisionIssuedAt ? "Los cambios posteriores volverán a bloquear la ruta." : "La emisión requiere un clic humano explícito."} No se puede omitir la revisión humana.</small>
+          <details className="event-log"><summary>Registro de actividad</summary><ol>{events.map((event, index) => <li key={`${event}-${index}`}>{event}</li>)}</ol></details>
         </aside>
       </div>
 
