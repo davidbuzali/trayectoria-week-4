@@ -8,7 +8,9 @@ import {
 } from "./data";
 import {
   MAX_RATIONALE_LENGTH,
+  calculateRoute,
   canIssueDecision,
+  confirmedCreditTotal,
   institutionalDecisionBlockers,
   validateRationale,
   type ReviewMap,
@@ -27,7 +29,49 @@ type ActiveAction = {
 
 type AiMode = "simulated" | "live";
 
+type RouteResult = ReturnType<typeof calculateRoute>;
+
+function RouteCard({
+  title,
+  institution,
+  route,
+  tuitionPerSemester,
+  affordability,
+  note,
+}: {
+  title: string;
+  institution: string;
+  route: RouteResult;
+  tuitionPerSemester: number;
+  affordability: number;
+  note: string;
+}) {
+  const withinBudget = tuitionPerSemester <= affordability;
+  const money = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
+  return (
+    <article className="route-card">
+      <p className="eyebrow">{title}</p>
+      <h3>{institution}</h3>
+      <div className="route-metrics">
+        <div><strong>{route.acceptedCredits}</strong><span>créditos reconocidos</span></div>
+        <div><strong>{route.remainingCredits}</strong><span>créditos restantes</span></div>
+        <div><strong>{route.estimatedSemesters}</strong><span>semestres estimados</span></div>
+      </div>
+      <dl className="cost-facts">
+        <div><dt>Colegiatura por semestre</dt><dd>{money.format(tuitionPerSemester)}</dd></div>
+        <div><dt>Colegiatura restante estimada</dt><dd>{money.format(route.projectedTuition)}</dd></div>
+        <div><dt>Referencia familiar</dt><dd>{money.format(affordability)} por semestre</dd></div>
+      </dl>
+      <p className={`budget-note ${withinBudget ? "within" : "over"}`}>
+        {withinBudget ? "Dentro de la referencia económica declarada." : `Supera la referencia en ${money.format(tuitionPerSemester - affordability)} por semestre.`}
+      </p>
+      <p className="route-note">{note}</p>
+    </article>
+  );
+}
+
 export default function App() {
+  const [view, setView] = useState<"evaluator" | "student">("evaluator");
   const [displayProposals, setDisplayProposals] = useState<readonly CourseProposal[]>(proposals);
   const [reviews, setReviews] = useState<ReviewMap>({});
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -48,6 +92,22 @@ export default function App() {
     () => institutionalDecisionBlockers(displayProposals, reviews),
     [displayProposals, reviews],
   );
+  const acceptedTransferCredits = useMemo(
+    () => confirmedCreditTotal(displayProposals, reviews, demoCase.previouslyConfirmedTransferCredits),
+    [displayProposals, reviews],
+  );
+  const currentRoute = useMemo(() => calculateRoute({
+    acceptedCredits: demoCase.currentCredits,
+    degreeCredits: demoCase.destinationCredits,
+    creditsPerSemester: demoCase.assumptions.creditsPerSemester,
+    tuitionPerSemester: demoCase.assumptions.currentTuitionPerSemester,
+  }), []);
+  const transferRoute = useMemo(() => calculateRoute({
+    acceptedCredits: acceptedTransferCredits,
+    degreeCredits: demoCase.destinationCredits,
+    creditsPerSemester: demoCase.assumptions.creditsPerSemester,
+    tuitionPerSemester: demoCase.assumptions.transferTuitionPerSemester,
+  }), [acceptedTransferCredits]);
 
   const applyReview = useCallback(
     (proposalId: string, status: ProposalReview["status"], reason: string) => {
@@ -169,6 +229,50 @@ export default function App() {
     setLiveMessage("Decisión institucional emitida. El cálculo ya puede usar solo créditos confirmados.");
   }
 
+  if (view === "student") {
+    const returned = displayProposals.filter((proposal) => reviews[proposal.id]?.status === "returned");
+    return (
+      <main>
+        <header className="topbar">
+          <a className="brand" href="#student-view" aria-label="Trayectoria, vista del estudiante">
+            <span className="brand-mark" aria-hidden="true">T</span>
+            <span><strong>TRAYECTORIA</strong><small>Vista del estudiante</small></span>
+          </a>
+          <p className="prototype-label"><span /> Prototipo académico · datos inventados</p>
+        </header>
+        <nav className="contextbar" aria-label="Contexto del expediente">
+          <div><span>Expediente</span><strong>{demoCase.id}</strong></div>
+          <div><span>Estudiante</span><strong>{demoCase.student}</strong></div>
+          <div><span>Evidencia calculada</span><strong>{demoCase.assumptions.evidenceDate}</strong></div>
+          <button type="button" onClick={() => setView("evaluator")}>Volver a evaluación <span aria-hidden="true">↗</span></button>
+        </nav>
+        <section className="student-view" id="student-view">
+          <p className="eyebrow">Decisión informada, no decisión automática</p>
+          <h1>Diego conserva la elección.</h1>
+          <p className="student-intro">Trayectoria muestra consecuencias verificables bajo las mismas suposiciones. No recomienda una institución y no elimina opciones por costo.</p>
+          {!decisionIssuedAt ? (
+            <div className="waiting-state">
+              <span aria-hidden="true">⌁</span>
+              <div><h2>La comparación todavía no está disponible.</h2><p>Una institución debe resolver todas las equivalencias y emitir una decisión escrita. Hasta entonces, ningún crédito propuesto entra al cálculo.</p></div>
+            </div>
+          ) : (
+            <>
+              <div className="student-decision-note"><strong>Decisión institucional simulada emitida</strong><span>{decisionIssuedAt} · {acceptedTransferCredits} créditos reconocidos para la ruta de transferencia</span></div>
+              <div className="route-grid" aria-label="Dos rutas calculadas con el mismo peso">
+                <RouteCard title="Permanecer" institution={demoCase.currentInstitution} route={currentRoute} tuitionPerSemester={demoCase.assumptions.currentTuitionPerSemester} affordability={demoCase.assumptions.affordabilityPerSemester} note="No hay apoyo verificado en el expediente; la brecha económica permanece visible y la ruta no se descarta." />
+                <RouteCard title="Transferencia" institution={demoCase.destinationInstitution} route={transferRoute} tuitionPerSemester={demoCase.assumptions.transferTuitionPerSemester} affordability={demoCase.assumptions.affordabilityPerSemester} note="Solo incorpora créditos confirmados en la decisión institucional; las propuestas devueltas cuentan como cero." />
+              </div>
+              {returned.length > 0 && <div className="returned-summary"><strong>Equivalencias no incorporadas</strong><ul>{returned.map((proposal) => <li key={proposal.id}>{proposal.sourceCourse.name}: {reviews[proposal.id]?.rationale}</li>)}</ul></div>}
+              <details className="assumptions"><summary>Suposiciones y límites del cálculo</summary><ul><li>{demoCase.assumptions.creditsPerSemester} créditos cursados por semestre.</li><li>Colegiaturas constantes; no incluye inflación, becas, transporte ni costo de vida.</li><li>La referencia familiar es declarada, no inferida.</li><li>Los tiempos son estimaciones aritméticas, no garantías académicas.</li></ul></details>
+              <div className="agency-note"><strong>También puedes rechazar ambas rutas.</strong><p>La información sirve para preguntar, negociar y decidir; no reemplaza tu criterio ni crea una obligación.</p></div>
+            </>
+          )}
+        </section>
+        <footer><span>Trayectoria · prototipo de verificación</span><span>Sin ranking · sin destino predicho · con evidencia corregible</span></footer>
+      </main>
+    );
+  }
+
   return (
     <main>
       <div className="sr-only" aria-live="polite">{liveMessage}</div>
@@ -184,7 +288,7 @@ export default function App() {
         <div><span>Expediente</span><strong>{demoCase.id}</strong></div>
         <div><span>Institución evaluadora</span><strong>{demoCase.destinationInstitution} · simulada</strong></div>
         <div><span>Fecha límite del estudiante</span><strong>{demoCase.paymentDeadline}</strong></div>
-        <button type="button" disabled title="Disponible después de emitir la decisión">Vista de Diego <span aria-hidden="true">↗</span></button>
+        <button type="button" onClick={() => setView("student")}>Vista de Diego <span aria-hidden="true">↗</span></button>
       </nav>
 
       <div className="shell" id="expediente">
@@ -269,6 +373,23 @@ export default function App() {
               );
             })}
           </div>
+          <section className={`calculator ${decisionIssuedAt ? "ready" : "locked"}`} aria-labelledby="calculator-title">
+            <div className="section-label">
+              <div><p className="eyebrow">Cálculo determinista</p><h3 id="calculator-title">Consecuencias visibles de cada ruta</h3></div>
+              <p>{decisionIssuedAt ? `Decisión emitida · ${decisionIssuedAt}` : "Requiere una decisión institucional escrita."}</p>
+            </div>
+            {!decisionIssuedAt ? (
+              <div className="calculator-lock"><span aria-hidden="true">⌁</span><p><strong>Calculadora bloqueada.</strong> Las propuestas de IA nunca entran directamente al cálculo.</p></div>
+            ) : (
+              <>
+                <div className="route-grid compact" aria-label="Dos rutas calculadas con el mismo peso">
+                  <RouteCard title="Permanecer" institution={demoCase.currentInstitution} route={currentRoute} tuitionPerSemester={demoCase.assumptions.currentTuitionPerSemester} affordability={demoCase.assumptions.affordabilityPerSemester} note="La brecha económica permanece visible; esta ruta no se descarta." />
+                  <RouteCard title="Transferencia" institution={demoCase.destinationInstitution} route={transferRoute} tuitionPerSemester={demoCase.assumptions.transferTuitionPerSemester} affordability={demoCase.assumptions.affordabilityPerSemester} note="Solo usa créditos confirmados; los devueltos cuentan como cero." />
+                </div>
+                <button className="student-view-button" type="button" onClick={() => setView("student")}>Abrir explicación para Diego <span aria-hidden="true">→</span></button>
+              </>
+            )}
+          </section>
         </section>
 
         <aside className="gate-panel" aria-labelledby="gate-title">
