@@ -56,4 +56,6 @@ The block also states that no AI proposal was added automatically. Diego's Septe
 
 ## Acceptance result
 
-The correction passes the existing build and nine-test suite. The remaining final check is to verify the corrected block in production after deployment. The product continues to avoid ranking, prediction, automatic approval, and removal of unaffordable routes.
+The correction passes the existing build and nine-test suite. The final Vercel deployment was exercised through the complete evaluator flow and Diego's resulting view. The production accessibility tree showed the payment deadline and the full `78 + 12 + 0 = 90` credit breakdown. The product continues to avoid ranking, prediction, automatic approval, and removal of unaffordable routes.
+
+Stable production URL: <https://week-4-trajectory-verification.vercel.app>

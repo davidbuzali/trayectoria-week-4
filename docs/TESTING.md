@@ -27,4 +27,5 @@ The client now maps the endpoint contract explicitly:
 
 - Deployment 1 exposed the real contract defect.
 - Deployment 2 contained commit `67f9428` and passed public HTTP and endpoint checks.
+- The final deployment contained the Diego persona correction from commit `2542100` and passed a complete browser retest through the student result.
 - Stable production alias: <https://week-4-trajectory-verification.vercel.app>

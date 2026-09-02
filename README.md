@@ -10,6 +10,9 @@ All people, institutions, records, costs, and dates shown in the product are fic
 - Source repository: <https://github.com/davidbuzali/trayectoria-week-4>
 - Planning packet: [`docs/PACKET.md`](docs/PACKET.md)
 - Implementation prompt: [`docs/IMPLEMENTATION_PROMPT.md`](docs/IMPLEMENTATION_PROMPT.md)
+- Mechanical test record: [`docs/TESTING.md`](docs/TESTING.md)
+- Diego persona record: [`docs/PERSONA.md`](docs/PERSONA.md)
+- Persona PDF: [`output/pdf/PERSONA_davidbuzali.pdf`](output/pdf/PERSONA_davidbuzali.pdf)
 - Decision log: [`DECISIONS.md`](DECISIONS.md)
 
 ## Run locally

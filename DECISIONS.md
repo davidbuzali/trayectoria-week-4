@@ -61,4 +61,11 @@ Run the required Diego persona test, record the evidence and any resulting corre
 
 ### Next validation move
 
-Verify the corrected Diego view in the deployed build, preserve the persona evidence, and complete the final Vercel deployment.
+Assemble the three-minute demo and final Week 4 submission artifacts from the verified Vercel build.
+
+## 2026-09-02 - Final persona deployment
+
+- Published the Diego-persona correction to Vercel after all nine automated checks passed.
+- Replayed the full evaluator flow against the production alias and opened Diego's resulting view.
+- Verified that the live accessibility tree exposes the September 18 deadline and the complete `78 + 12 + 0 = 90` recognized-credit arithmetic.
+- Confirmed that both routes remain present with equal weight and that the product still states Diego may reject both.
